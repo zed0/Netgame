@@ -1,6 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include <vector>
+#include <map>
 #include <cstdlib>
 #include <ctime>
 #include <string>
@@ -26,7 +27,10 @@ int centreY;
 
 vector<vector<tile> > maze;
 
-string chooseTile(int type);
+map<int,string> tiles;
+
+void init();
+void generateMap();
 void setColor(int color);
 void setBackColor(int color);
 void setCursor(int X, int Y);
@@ -58,11 +62,6 @@ int main(int argc, char *argv[])
 	centreX = sizeX/2;
 	centreY = sizeY/2;
 
-	for(int i=0; i<sizeX; ++i)
-	{
-		maze.push_back(vector<tile>(sizeY));
-	}
-
 	termios before, after;
 	tcgetattr (STDIN_FILENO, &before); // fill 'before' with current termios values
 	after = before; // make a copy to be modified
@@ -70,13 +69,165 @@ int main(int argc, char *argv[])
 	after.c_lflag &= (~ECHO); // Don't echo characters on the screen (optional)
 	tcsetattr (STDIN_FILENO, TCSANOW, &after); // Set the modified flags
 
+	init();
+
+	//main control loop
+	char ch;
+	while(1)
+	{
+		if(ch=cin.get())
+		{
+			if(ch == 'q')
+			{
+				tcsetattr (STDIN_FILENO, TCSANOW, &before);
+				return 0;
+			}
+			else if(ch == ' ' || ch == '.')
+			{
+				if(!maze.at(currentX).at(currentY).locked)
+				{
+					rotateClockwise(1);
+					drawMap();
+				}
+			}
+			else if(ch == ',')
+			{
+				if(!maze.at(currentX).at(currentY).locked)
+				{
+					rotateClockwise(3);
+					drawMap();
+				}
+			}
+			else if(ch == 'l' || ch == 's')
+			{
+				maze.at(currentX).at(currentY).locked = !maze.at(currentX).at(currentY).locked;
+				drawMap();
+			}
+			else if(ch == 27)
+			{
+				ch=cin.get();
+				if(ch == '[')
+				{
+					//we have a special character
+					ch=cin.get();
+					if(ch == 'A')
+					{
+						//cout << "Up";
+						int oldX = currentX;
+						currentX = (--currentX%sizeX + sizeX)%sizeX;
+						drawTile(oldX, currentY);
+						drawTile(currentX, currentY);
+						cout << "\033[u";
+					}
+					else if(ch == 'B')
+					{
+						//cout << "Down";
+						int oldX = currentX;
+						currentX = (++currentX%sizeX + sizeX)%sizeX;
+						drawTile(oldX, currentY);
+						drawTile(currentX, currentY);
+						cout << "\033[u";
+					}
+					else if(ch == 'C')
+					{
+						//cout << "Right";
+						int oldY = currentY;
+						currentY = (++currentY%sizeY + sizeY)%sizeY;
+						drawTile(currentX, oldY);
+						drawTile(currentX, currentY);
+						cout << "\033[u";
+					}
+					else if(ch == 'D')
+					{
+						//cout << "Left";
+						int oldY = currentY;
+						currentY = (--currentY%sizeY + sizeY)%sizeY;
+						drawTile(currentX, oldY);
+						drawTile(currentX, currentY);
+						cout << "\033[u";
+					}
+					else
+					{
+					}
+				}
+				else
+				{
+					//cout << "ESC" << ch;
+				}
+			}
+			else
+			{
+				//cout << ch;
+			}
+		}
+		
+	}
+}
+
+void setBackColor(int color)
+{
+	if(color == -1)
+	{
+		cout << "\033[0m";
+	}
+	else if(color >= 0 && color <8)
+	{
+		cout << "\033[4" << color << "m";
+	}
+}
+
+void init()
+{
+	//set tile appearances according to binary OR of the directions
+	//Up: 0x01
+	//Right: 0x02
+	//Down: 0x04
+	//Left: 0x08
+	tiles[0x00] = ".";
+	tiles[0x01] = "╨";
+	tiles[0x02] = "╞";
+	tiles[0x03] = "╚";
+	tiles[0x04] = "╥";
+	tiles[0x05] = "║";
+	tiles[0x06] = "╔";
+	tiles[0x07] = "╠";
+	tiles[0x08] = "╡";
+	tiles[0x09] = "╝";
+	tiles[0x0A] = "═";
+	tiles[0x0B] = "╩";
+	tiles[0x0C] = "╗";
+	tiles[0x0D] = "╣";
+	tiles[0x0E] = "╦";
+	tiles[0x0F] = "╬";
+
+	for(int i=0; i<sizeX; ++i)
+	{
+		maze.push_back(vector<tile>(sizeY));
+	}
+
 	srand(time(NULL));
 
-	///////////
-	// Map generation
-	///////////
-	//Set centre tile to be source:
-	//maze.at(centreX).at(centreY) = 15;
+	generateMap();
+	//randomly rotate every tile:
+	for(int i=0; i<maze.size(); ++i)
+	{
+		for(int j=0; j<maze.at(i).size(); ++j)
+		{
+			currentX = i;
+			currentY = j;
+			rotateClockwise(rand()%4);
+		}
+	}
+	//clear screen
+	cout << "\033[2J";
+	drawMap();
+	//save cursor position
+	cout << "\033[s";
+}
+
+void generateMap()
+{
+	//This function needs some serious work
 	//Do a series of random walks (without looping) to generate a tree:
 	while(findEmptyCell())
 	{
@@ -173,6 +324,8 @@ int main(int argc, char *argv[])
 				{
 					switch(rand()%4)
 					{
+						//if the chosen direction isn't blocked then lock that tile and add the direction we're going
+						//also change coordinates to the next tile and add the direction we've come from
 						case 0:
 							if(!(blocked & 0x01))
 							{
@@ -217,6 +370,7 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
+		//unlock all tiles
 		for(int i=0; i<maze.size(); ++i)
 		{
 			for(int j=0; j<maze.at(i).size(); ++j)
@@ -224,164 +378,6 @@ int main(int argc, char *argv[])
 				maze.at(i).at(j).locked = false;
 			}
 		}
-	}
-	//randomize it all:
-	for(int i=0; i<maze.size(); ++i)
-	{
-		for(int j=0; j<maze.at(i).size(); ++j)
-		{
-			currentX = i;
-			currentY = j;
-			rotateClockwise(rand()%4);
-		}
-	}
-
-	cout << "\033[2J";
-	drawMap();
-	cout << "\033[s";
-
-	char ch;
-	while(1)
-	{
-		if(ch=cin.get())
-		{
-			if(ch == 'q')
-			{
-				tcsetattr (STDIN_FILENO, TCSANOW, &before);
-				return 0;
-			}
-			else if(ch == ' ' || ch == '.')
-			{
-				if(!maze.at(currentX).at(currentY).locked)
-				{
-					rotateClockwise(1);
-					drawMap();
-				}
-			}
-			else if(ch == ',')
-			{
-				if(!maze.at(currentX).at(currentY).locked)
-				{
-					rotateClockwise(3);
-					drawMap();
-				}
-			}
-			else if(ch == 'l' || ch == 's')
-			{
-				maze.at(currentX).at(currentY).locked = !maze.at(currentX).at(currentY).locked;
-				drawMap();
-			}
-			else if(ch == 27)
-			{
-				ch=cin.get();
-				if(ch == '[')
-				{
-					//we have a special character
-					ch=cin.get();
-					if(ch == 'A')
-					{
-						//cout << "Up";
-						int oldX = currentX;
-						currentX = (--currentX%sizeX + sizeX)%sizeX;
-						drawTile(oldX, currentY);
-						drawTile(currentX, currentY);
-						cout << "\033[u";
-					}
-					else if(ch == 'B')
-					{
-						//cout << "Down";
-						int oldX = currentX;
-						currentX = (++currentX%sizeX + sizeX)%sizeX;
-						drawTile(oldX, currentY);
-						drawTile(currentX, currentY);
-						cout << "\033[u";
-					}
-					else if(ch == 'C')
-					{
-						//cout << "Right";
-						int oldY = currentY;
-						currentY = (++currentY%sizeY + sizeY)%sizeY;
-						drawTile(currentX, oldY);
-						drawTile(currentX, currentY);
-						cout << "\033[u";
-					}
-					else if(ch == 'D')
-					{
-						//cout << "Left";
-						int oldY = currentY;
-						currentY = (--currentY%sizeY + sizeY)%sizeY;
-						drawTile(currentX, oldY);
-						drawTile(currentX, currentY);
-						cout << "\033[u";
-					}
-					else
-					{
-					}
-				}
-				else
-				{
-					//cout << "ESC" << ch;
-				}
-			}
-			else
-			{
-				//cout << ch;
-			}
-		}
-		
-	}
-}
-
-string chooseTile(int type)
-{
-	switch(type)
-	{
-		case 0x00:
-			return ".";
-		case 0x01:
-			return "╨";
-		case 0x02:
-			return "╞";
-		case 0x03:
-			return "╚";
-		case 0x04:
-			return "╥";
-		case 0x05:
-			return "║";
-		case 0x06:
-			return "╔";
-		case 0x07:
-			return "╠";
-		case 0x08:
-			return "╡";
-		case 0x09:
-			return "╝";
-		case 0x0A:
-			return "═";
-		case 0x0B:
-			return "╩";
-		case 0x0C:
-			return "╗";
-		case 0x0D:
-			return "╣";
-		case 0x0E:
-			return "╦";
-		case 0x0F:
-			return "╬";
-		default:
-			return "*";
-	}
-}
-
-void setBackColor(int color)
-{
-	if(color == -1)
-	{
-		cout << "\033[0m";
-	}
-	else if(color >= 0 && color <8)
-	{
-		cout << "\033[4" << color << "m";
 	}
 }
 
@@ -523,7 +519,7 @@ void drawTile(int X,int Y)
 		//set cursor to red
 		setBackColor(1);
 	}
-	cout << chooseTile(maze.at(X).at(Y).type);
+	cout << tiles[maze.at(X).at(Y).type];
 	setColor(-1);
 }
 
