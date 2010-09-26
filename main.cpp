@@ -75,6 +75,7 @@ int main(int argc, char *argv[])
 	char ch;
 	while(1)
 	{
+		//check which key has been pressed.  cin.get() blocks.
 		if(ch=cin.get())
 		{
 			if(ch == 'q')
@@ -103,6 +104,7 @@ int main(int argc, char *argv[])
 				maze.at(currentX).at(currentY).locked = !maze.at(currentX).at(currentY).locked;
 				drawMap();
 			}
+			//if there's a special character (a non ASCII value) then it comes through as ESC (27) and then another series of characters
 			else if(ch == 27)
 			{
 				ch=cin.get();
@@ -224,6 +226,7 @@ void generateMap()
 			int blocked = 0x00;
 			int connected = 0x00;
 			bool chosen = false;
+			//check which directions are blocked and which directions are connected to the already existing tree
 			if(currentX > 0 && !maze.at(currentX-1).at(currentY).locked)
 			{
 				if(maze.at(currentX-1).at(currentY).type) connected |= 0x01;
@@ -256,6 +259,7 @@ void generateMap()
 			{
 				blocked |= 0x08;
 			}
+			//if it's possible to connect to the pre-existing tree then do in a random direction
 			if(connected)
 			{
 				while(!chosen)
@@ -302,10 +306,12 @@ void generateMap()
 				}
 				break;
 			}
+			//if every direction is blocked then break out and start on a new branch (this should only happen with the first random walk)
 			else if(blocked == 0x0F)
 			{
 				break;
 			}
+			//otherwise go in a random unblocked direction
 			else
 			{
 				while(!chosen)
