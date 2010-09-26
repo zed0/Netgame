@@ -1,0 +1,3 @@
+Compile with: g++ -o netgame main.cpp
+Should work on most ANSI terminals if their fonts have standard box drawing characters.
+Compiles and runs under Cygwin; if you're using "Cygwin Bash Shell" then change the font to Consolas or Lucidia Console as the default font displays the terminals and the T junctions the same, making the game rather harder.
