@@ -164,18 +164,6 @@ int main(int argc, char *argv[])
 	}
 }
 
-void setBackColor(int color)
-{
-	if(color == -1)
-	{
-		cout << "\033[0m";
-	}
-	else if(color >= 0 && color <8)
-	{
-		cout << "\033[4" << color << "m";
-	}
-}
-
 void init()
 {
 	//set tile appearances according to binary OR of the directions
@@ -393,6 +381,18 @@ void setColor(int color)
 	}
 }
 
+void setBackColor(int color)
+{
+	if(color == -1)
+	{
+		cout << "\033[0m";
+	}
+	else if(color >= 0 && color <8)
+	{
+		cout << "\033[4" << color << "m";
+	}
+}
+
 void setCursor(int X, int Y)
 {
 	cout << "\033[" << X+1 << ";" << Y+1 << "f";
@@ -400,6 +400,7 @@ void setCursor(int X, int Y)
 
 void rotateClockwise(int n)
 {
+	//use some haxy bit shifting to rotate the tile
 	int current = maze.at(currentX).at(currentY).type;
 	current &= 0x0F;
 	current = (current << n) | (current >> (4 - n));
@@ -410,6 +411,8 @@ void rotateClockwise(int n)
 
 bool findEmptyCell()
 {
+	//find the first empty cell and set current coordinates to that cell
+	//used for map generation
 	for(int i=0; i<maze.size(); ++i)
 	{
 		for(int j=0; j<maze.at(i).size(); ++j)
@@ -427,12 +430,15 @@ bool findEmptyCell()
 
 void wrapCoords()
 {
+	//not currently used
+	//ensure that the coordinates are within our bounds
 	currentX = (currentX%sizeX + sizeX)%sizeX;
 	currentY = (currentY%sizeY + sizeY)%sizeY;
 }
 
 void clearConnected()
 {
+	//reset the connection status of all tiles
 	for(int i=0; i<maze.size(); ++i)
 	{
 		for(int j=0; j<maze.at(i).size(); ++j)
@@ -444,6 +450,7 @@ void clearConnected()
 
 void setConnected(int X, int Y)
 {
+	//recursively set the status of each connected tile
 	if(!maze.at(X).at(Y).connected)
 	{
 		maze.at(X).at(Y).connected = true;
@@ -484,7 +491,11 @@ void drawMap()
 		}
 		cout << endl;
 	}
+	//clear line
+	cout << "\033[K";
+	//show number connected
 	cout << connected << "/" << sizeX*sizeY << endl;
+	//if all pieces are connected then say congrats, otherwise clear the line.
 	if(connected == sizeX*sizeY)
 	{
 		cout << "Congratulations!";
