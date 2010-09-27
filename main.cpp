@@ -6,6 +6,7 @@
 #include <ctime>
 #include <string>
 #include <sstream>
+#include <algorithm>
 #include <termios.h>
 using namespace std;
 
@@ -29,6 +30,8 @@ vector<vector<tile> > maze;
 
 map<int,string> tiles;
 
+bool wrapping = false;
+
 void init();
 void generateMap();
 void setColor(int color);
@@ -36,7 +39,8 @@ void setBackColor(int color);
 void setCursor(int X, int Y);
 void rotateClockwise(int n);
 bool findEmptyCell();
-void wrapCoords();
+int wrapX(int X);
+int wrapY(int Y);
 void clearConnected();
 void setConnected(int X, int Y);
 void drawMap();
@@ -48,7 +52,7 @@ int main(int argc, char *argv[])
 	vector<string> args(argv, argv + argc);
 	if(args.size() < 3)
 	{
-		cout << "usage: " + string(args.at(0)) + " x-size y-size" << endl;
+		cout << "usage: " + string(args.at(0)) + " x-size y-size [--wrapping]" << endl;
 		cout << "Move cursor:\t\tArrow keys" << endl;
 		cout << "Rotate clockwise:\t. or Space" << endl;
 		cout << "Rotate anticlockwise:\t," << endl;
@@ -58,6 +62,10 @@ int main(int argc, char *argv[])
 	}
 	sizeX = fromString<int>(args.at(1));
 	sizeY = fromString<int>(args.at(2));
+	if(find(args.begin(), args.end(), "--wrapping")!=args.end())
+	{
+		wrapping = true;
+	}
 
 	centreX = sizeX/2;
 	centreY = sizeY/2;
@@ -227,33 +235,33 @@ void generateMap()
 			int connected = 0x00;
 			bool chosen = false;
 			//check which directions are blocked and which directions are connected to the already existing tree
-			if(currentX > 0 && !maze.at(currentX-1).at(currentY).locked)
+			if((wrapping || currentX > 0) && !maze.at(wrapX(currentX-1)).at(currentY).locked)
 			{
-				if(maze.at(currentX-1).at(currentY).type) connected |= 0x01;
+				if(maze.at(wrapX(currentX-1)).at(currentY).type) connected |= 0x01;
 			}
 			else
 			{
 				blocked |= 0x01;
 			}
-			if(currentY < sizeY-1 && !maze.at(currentX).at(currentY+1).locked)
+			if((wrapping || currentY < sizeY-1) && !maze.at(currentX).at(wrapY(currentY+1)).locked)
 			{
-				if(maze.at(currentX).at(currentY+1).type) connected |= 0x02;
+				if(maze.at(currentX).at(wrapY(currentY+1)).type) connected |= 0x02;
 			}
 			else
 			{
 				blocked |= 0x02;
 			}
-			if(currentX < sizeX-1 && !maze.at(currentX+1).at(currentY).locked)
+			if((wrapping || currentX < sizeX-1) && !maze.at(wrapX(currentX+1)).at(currentY).locked)
 			{
-				if(maze.at(currentX+1).at(currentY).type) connected |= 0x04;
+				if(maze.at(wrapX(currentX+1)).at(currentY).type) connected |= 0x04;
 			}
 			else
 			{
 				blocked |= 0x04;
 			}
-			if(currentY > 0 && !maze.at(currentX).at(currentY-1).locked)
+			if((wrapping || currentY > 0) && !maze.at(currentX).at(wrapY(currentY-1)).locked)
 			{
-				if(maze.at(currentX).at(currentY-1).type) connected |= 0x08;
+				if(maze.at(currentX).at(wrapY(currentY-1)).type) connected |= 0x08;
 			}
 			else
 			{
@@ -270,7 +278,7 @@ void generateMap()
 							if(connected & 0x01)
 							{
 								maze.at(currentX).at(currentY).type |= 0x01;
-								--currentX;
+								currentX = wrapX(--currentX);
 								maze.at(currentX).at(currentY).type |= 0x04;
 								chosen = true;
 							}
@@ -279,7 +287,7 @@ void generateMap()
 							if(connected & 0x02)
 							{
 								maze.at(currentX).at(currentY).type |= 0x02;
-								++currentY;
+								currentY = wrapY(++currentY);
 								maze.at(currentX).at(currentY).type |= 0x08;
 								chosen = true;
 							}
@@ -288,7 +296,7 @@ void generateMap()
 							if(connected & 0x04)
 							{
 								maze.at(currentX).at(currentY).type |= 0x04;
-								++currentX;
+								currentX = wrapX(++currentX);
 								maze.at(currentX).at(currentY).type |= 0x01;
 								chosen = true;
 							}
@@ -297,7 +305,7 @@ void generateMap()
 							if(connected & 0x08)
 							{
 								maze.at(currentX).at(currentY).type |= 0x08;
-								--currentY;
+								currentY = wrapY(--currentY);
 								maze.at(currentX).at(currentY).type |= 0x02;
 								chosen = true;
 							}
@@ -325,7 +333,7 @@ void generateMap()
 							{
 								maze.at(currentX).at(currentY).locked = true;
 								maze.at(currentX).at(currentY).type |= 1;
-								--currentX;
+								currentX = wrapX(--currentX);
 								maze.at(currentX).at(currentY).type |= 4;
 								chosen = true;
 							}
@@ -335,7 +343,7 @@ void generateMap()
 							{
 								maze.at(currentX).at(currentY).locked = true;
 								maze.at(currentX).at(currentY).type |= 2;
-								++currentY;
+								currentY = wrapY(++currentY);
 								maze.at(currentX).at(currentY).type |= 8;
 								chosen = true;
 							}
@@ -345,7 +353,7 @@ void generateMap()
 							{
 								maze.at(currentX).at(currentY).locked = true;
 								maze.at(currentX).at(currentY).type |= 4;
-								++currentX;
+								currentX = wrapX(++currentX);
 								maze.at(currentX).at(currentY).type |= 1;
 								chosen = true;
 							}
@@ -355,7 +363,7 @@ void generateMap()
 							{
 								maze.at(currentX).at(currentY).locked = true;
 								maze.at(currentX).at(currentY).type |= 8;
-								--currentY;
+								currentY = wrapY(--currentY);
 								maze.at(currentX).at(currentY).type |= 2;
 								chosen = true;
 							}
@@ -434,12 +442,18 @@ bool findEmptyCell()
 	return false;
 }
 
-void wrapCoords()
+int wrapX(int X)
 {
 	//not currently used
 	//ensure that the coordinates are within our bounds
-	currentX = (currentX%sizeX + sizeX)%sizeX;
-	currentY = (currentY%sizeY + sizeY)%sizeY;
+	return (X%sizeX + sizeX)%sizeX;
+}
+
+int wrapY(int Y)
+{
+	//not currently used
+	//ensure that the coordinates are within our bounds
+	return (Y%sizeY + sizeY)%sizeY;
 }
 
 void clearConnected()
@@ -460,21 +474,33 @@ void setConnected(int X, int Y)
 	if(!maze.at(X).at(Y).connected)
 	{
 		maze.at(X).at(Y).connected = true;
-		if(X > 0 && maze.at(X).at(Y).type & 0x01 && maze.at(X-1).at(Y).type & 0x04)
+		if(maze.at(X).at(Y).type & 0x01)
 		{
-			setConnected(X-1,Y);
+			if((wrapping || X > 0) && maze.at(wrapX(X-1)).at(Y).type & 0x04)
+			{
+				setConnected(wrapX(X-1),Y);
+			}
 		}
-		if(Y <sizeY-1 && maze.at(X).at(Y).type & 0x02 && maze.at(X).at(Y+1).type & 0x08)
+		if(maze.at(X).at(Y).type & 0x02)
 		{
-			setConnected(X,Y+1);
+			if((wrapping || Y < sizeY-1) && maze.at(X).at(wrapY(Y+1)).type & 0x08)
+			{
+				setConnected(X,wrapY(Y+1));
+			}
 		}
-		if(X < sizeX-1 && maze.at(X).at(Y).type & 0x04 && maze.at(X+1).at(Y).type & 0x01)
+		if(maze.at(X).at(Y).type & 0x04)
 		{
-			setConnected(X+1,Y);
+			if((wrapping || X < sizeX-1) && maze.at(wrapX(X+1)).at(Y).type & 0x01)
+			{
+				setConnected(wrapX(X+1),Y);
+			}
 		}
-		if(Y > 0 && maze.at(X).at(Y).type & 0x08 && maze.at(X).at(Y-1).type & 0x02)
+		if(maze.at(X).at(Y).type & 0x08)
 		{
-			setConnected(X,Y-1);
+			if((wrapping || Y > 0) && maze.at(X).at(wrapY(Y-1)).type & 0x02)
+			{
+				setConnected(X,wrapY(Y-1));
+			}
 		}
 	}
 }
