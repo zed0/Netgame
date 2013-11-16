@@ -8,6 +8,7 @@
 #include <sstream>
 #include <algorithm>
 #include <termios.h>
+#include <unistd.h> 
 using namespace std;
 
 struct tile
